@@ -5,9 +5,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/nyaa.js --bundle --format=esm --target=es2020 --platform=neutral --outfile=dist/nyaa.js",
-    "build:min": "esbuild src/nyaa.js --bundle --minify --format=esm --target=es2020 --platform=neutral --outfile=dist/nyaa.js",
-    "test": "node --experimental-vm-modules test/run.mjs"
+    "build": "node scripts/build.mjs",
+    "build:min": "node scripts/build.mjs --minify",
+    "test": "node test/run.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.24.0"

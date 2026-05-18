@@ -19,5 +19,33 @@
         "default": false
       }
     }
+  },
+  {
+    "manifestVersion": 2,
+    "name": "SeaDex",
+    "id": "seadex",
+    "version": "1.0.0",
+    "type": "torrent",
+    "accuracy": "high",
+    "media": "sub",
+    "languages": ["US"],
+    "url": "aHR0cHM6Ly9yZWxlYXNlcy5tb2U=",
+    "icon": "https://releases.moe/favicon.png",
+    "update": "https://raw.githubusercontent.com/resirch/hayase-extensions/main/index.json",
+    "code": "https://raw.githubusercontent.com/resirch/hayase-extensions/main/dist/seadex.js"
+  },
+  {
+    "manifestVersion": 2,
+    "name": "AnimeTosho",
+    "id": "animetosho",
+    "version": "1.0.0",
+    "type": "torrent",
+    "accuracy": "high",
+    "media": "sub",
+    "languages": ["US"],
+    "url": "aHR0cHM6Ly9mZWVkLmFuaW1ldG9zaG8ub3Jn",
+    "icon": "https://animetosho.org/inc/favicon.ico",
+    "update": "https://raw.githubusercontent.com/resirch/hayase-extensions/main/index.json",
+    "code": "https://raw.githubusercontent.com/resirch/hayase-extensions/main/dist/animetosho.js"
   }
 ]
