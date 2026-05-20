@@ -258,6 +258,29 @@ async function testNekoBT () {
   assert.deepEqual(await nekobt.single({ titles: [], fetch: globalThis.fetch }), [])
 }
 
+async function testCoteS4E11 () {
+  section('Classroom of the Elite S4E11 (multi-title + season filter)')
+  const titles = [
+    'Youkoso Jitsuryoku Shijou Shugi no Kyoushitsu e: 2-nensei-hen 2-gakki',
+    'Classroom of the Elite Season 4',
+    'Youkoso Jitsuryoku Shijou Shugi no Kyoushitsu e'
+  ]
+  const q = { titles, episode: 11, resolution: '1080', exclusions: [], fetch: globalThis.fetch }
+
+  const forbidSeasonRe = /\b(?:S0?[1-3](?![\d])|S0?[1-3]E\d|[1-3](?:st|nd|rd)\s+season|season\s+[1-3]\b)/i
+
+  for (const [name, ext] of [['Nyaa', nyaa], ['nekoBT', nekobt], ['SubsPlease', subsplease]]) {
+    const r = await ext.single(q)
+    log(`  ${name}: ${r.length} results`)
+    assert.ok(r.length > 0, `${name} should find S4E11`)
+    for (const x of r) {
+      assertCommon(x)
+      assert.ok(extractNumbersFromTitle(x.title).has(11), `${name}: missing ep 11 in "${x.title}"`)
+      assert.ok(!forbidSeasonRe.test(x.title), `${name}: leaked wrong-season "${x.title}"`)
+    }
+  }
+}
+
 async function run () {
   unitFilterChecks()
   await testNyaa()
@@ -265,6 +288,7 @@ async function run () {
   await testAnimeTosho()
   await testSubsPlease()
   await testNekoBT()
+  await testCoteS4E11()
   log('\nall tests passed ✓')
 }
 

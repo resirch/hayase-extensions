@@ -105,26 +105,68 @@ function sanitizeTitle (title) {
     .trim()
 }
 
-function buildQuery ({ titles, episode, resolution, exclusions }, { kind }) {
-  const parts = []
-  const title = sanitizeTitle(titles?.[0] ?? '')
-  if (title) parts.push(title)
+const SEASON_STRIP_RE = /\b(?:season\s+\d{1,2}|s\d{1,2}|\d{1,2}(?:st|nd|rd|th)\s+season|part\s+\d{1,2})\b/ig
 
+function getCoreTitle (rawTitle) {
+  let t = String(rawTitle || '')
+  const colonIdx = t.indexOf(':')
+  if (colonIdx > 4) t = t.slice(0, colonIdx)
+  return t.replace(SEASON_STRIP_RE, '').replace(/\s+/g, ' ').trim()
+}
+
+function extractSeasonHints (text) {
+  const hints = new Set()
+  for (const m of String(text).matchAll(/\bS(\d{1,2})(?:E\d{1,3})?\b/ig)) hints.add(Number(m[1]))
+  for (const m of String(text).matchAll(/\bseason\s+(\d{1,2})\b/ig)) hints.add(Number(m[1]))
+  for (const m of String(text).matchAll(/\b(\d{1,2})(?:st|nd|rd|th)\s+season\b/ig)) hints.add(Number(m[1]))
+  return hints
+}
+
+function inferQuerySeason (titles) {
+  for (const t of titles || []) {
+    const hints = extractSeasonHints(t)
+    if (hints.size) return [...hints][0]
+  }
+  return null
+}
+
+function matchesSeason (resultTitle, expectedSeason) {
+  if (expectedSeason == null) return true
+  const hints = extractSeasonHints(resultTitle)
+  if (!hints.size) return true
+  return hints.has(expectedSeason)
+}
+
+function uniqueCoreTitles (titles, limit) {
+  const tried = new Set()
+  const out = []
+  for (const t of titles || []) {
+    const core = getCoreTitle(t)
+    const key = sanitizeTitle(core).toLowerCase()
+    if (!key || tried.has(key)) continue
+    tried.add(key)
+    out.push(core)
+    if (out.length >= limit) break
+  }
+  return out
+}
+
+function buildQueryForCore (core, { episode, resolution, exclusions }, kind) {
+  const parts = []
+  const t = sanitizeTitle(core)
+  if (t) parts.push(t)
   if (kind === 'single' && episode != null) {
     parts.push(String(episode).padStart(2, '0'))
   } else if (kind === 'batch') {
     parts.push('batch')
   }
-
   if (resolution) parts.push(resolution + 'p')
-
   if (Array.isArray(exclusions)) {
     for (const ex of exclusions.slice(0, 8)) {
       const token = sanitizeTitle(ex).split(' ')[0]
       if (token) parts.push('-' + token)
     }
   }
-
   return parts.join(' ').trim()
 }
 
@@ -158,15 +200,40 @@ function resolveSort (options) {
 
 async function search (query, options, kind) {
   const fetchFn = query?.fetch ?? globalThis.fetch
-  if (!query?.titles?.length) return []
-  const q = buildQuery(query, { kind })
-  if (!q) return []
+  const titles = query?.titles || []
+  if (!titles.length) return []
+
+  const expectedSeason = inferQuerySeason(titles)
   const sort = resolveSort(options)
-  const results = await fetchRss(fetchFn, q, sort)
-  if (kind === 'single' && (query.episode != null || query.absoluteEpisodeNumber != null)) {
-    return results.filter(r => matchesEpisode(r.title, query))
+  const cores = uniqueCoreTitles(titles, 3)
+  if (!cores.length) return []
+
+  const seen = new Set()
+  const merged = []
+  for (const core of cores) {
+    const q = buildQueryForCore(core, query, kind)
+    if (!q) continue
+    let results
+    try {
+      results = await fetchRss(fetchFn, q, sort)
+    } catch {
+      continue
+    }
+    for (const r of results) {
+      if (!r.hash || seen.has(r.hash)) continue
+      seen.add(r.hash)
+      merged.push(r)
+    }
   }
-  return results
+
+  let filtered = merged
+  if (kind === 'single' && (query.episode != null || query.absoluteEpisodeNumber != null)) {
+    filtered = filtered.filter(r => matchesEpisode(r.title, query))
+  }
+  if (kind === 'single' && expectedSeason != null) {
+    filtered = filtered.filter(r => matchesSeason(r.title, expectedSeason))
+  }
+  return filtered
 }
 
 export default {

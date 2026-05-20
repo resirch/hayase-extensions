@@ -21,6 +21,38 @@ function normalizeSearchTerm (title) {
     .trim()
 }
 
+const SEASON_STRIP_RE = /\b(?:season\s+\d{1,2}|s\d{1,2}|\d{1,2}(?:st|nd|rd|th)\s+season|part\s+\d{1,2})\b/ig
+
+function getCoreTitle (rawTitle) {
+  let t = String(rawTitle || '')
+  const colonIdx = t.indexOf(':')
+  if (colonIdx > 4) t = t.slice(0, colonIdx)
+  return t.replace(SEASON_STRIP_RE, '').replace(/\s+/g, ' ').trim()
+}
+
+function extractSeasonHints (text) {
+  const hints = new Set()
+  for (const m of String(text).matchAll(/\bS(\d{1,2})(?:E\d{1,3})?\b/ig)) hints.add(Number(m[1]))
+  for (const m of String(text).matchAll(/\bseason\s+(\d{1,2})\b/ig)) hints.add(Number(m[1]))
+  for (const m of String(text).matchAll(/\b(\d{1,2})(?:st|nd|rd|th)\s+season\b/ig)) hints.add(Number(m[1]))
+  return hints
+}
+
+function inferQuerySeason (titles) {
+  for (const t of titles || []) {
+    const hints = extractSeasonHints(t)
+    if (hints.size) return [...hints][0]
+  }
+  return null
+}
+
+function matchesSeason (text, expectedSeason) {
+  if (expectedSeason == null) return true
+  const hints = extractSeasonHints(text)
+  if (!hints.size) return expectedSeason === 1
+  return hints.has(expectedSeason)
+}
+
 function decodeEntities (str) {
   return str
     .replace(/&lt;/g, '<')
@@ -118,17 +150,31 @@ function mapDownload (entry, download) {
 
 async function search (query) {
   const fetchFn = query?.fetch ?? globalThis.fetch
-  const titles = (query?.titles || []).map(normalizeSearchTerm).filter(Boolean)
-  if (!titles.length) return []
+  const rawTitles = query?.titles || []
+  if (!rawTitles.length) return []
 
+  const expectedSeason = inferQuerySeason(rawTitles)
   const resolution = normalizeResolution(query.resolution)
   const results = []
   const seen = new Set()
 
-  for (const title of titles.slice(0, 4)) {
-    const entries = await fetchSearch(fetchFn, title)
+  const tried = new Set()
+  const searchTerms = []
+  for (const t of rawTitles) {
+    const core = getCoreTitle(t)
+    const term = normalizeSearchTerm(core)
+    const key = term.toLowerCase()
+    if (!term || tried.has(key)) continue
+    tried.add(key)
+    searchTerms.push(term)
+    if (searchTerms.length >= 4) break
+  }
+
+  for (const term of searchTerms) {
+    const entries = await fetchSearch(fetchFn, term)
     for (const entry of entries) {
       if (!matchesEpisode(entry, query)) continue
+      if (expectedSeason != null && !matchesSeason(entry.show || '', expectedSeason)) continue
       const downloads = Array.isArray(entry.downloads) ? entry.downloads : []
       for (const download of downloads) {
         if (resolution && normalizeResolution(download.res) !== resolution) continue
