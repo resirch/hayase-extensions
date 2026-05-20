@@ -2,6 +2,8 @@ import { strict as assert } from 'node:assert'
 import nyaa from '../dist/nyaa.js'
 import seadex from '../dist/seadex.js'
 import animetosho from '../dist/animetosho.js'
+import nekobt from '../dist/nekobt.js'
+import subsplease from '../dist/subsplease.js'
 
 const log = (...a) => console.log('[test]', ...a)
 const section = name => log(`\n── ${name} ──`)
@@ -188,11 +190,81 @@ async function testAnimeTosho () {
   log('  missing IDs throw user-friendly errors ✓')
 }
 
+async function testSubsPlease () {
+  section('SubsPlease')
+  assert.equal(await subsplease.test(), true)
+  log('  test() OK')
+
+  const single = await subsplease.single({
+    titles: ['Sousou no Frieren'], episode: 28, resolution: '1080', exclusions: [], fetch: globalThis.fetch
+  })
+  log(`  single(Sousou no Frieren 28) → ${single.length} results`)
+  assert.ok(single.length > 0)
+  single.forEach(r => {
+    assertCommon(r)
+    assert.match(r.title, /SubsPlease/)
+    assert.match(r.title, /1080p/)
+  })
+
+  const filtered = await subsplease.single({
+    titles: ['Sousou no Frieren'], episode: 28, resolution: '1080', exclusions: ['Frieren'], fetch: globalThis.fetch
+  })
+  assert.deepEqual(filtered, [])
+  log('  exclusions filter release titles ✓')
+
+  assert.deepEqual(await subsplease.batch({ titles: ['Sousou no Frieren'], fetch: globalThis.fetch }), [])
+  log('  batch() → []')
+}
+
+async function testNekoBT () {
+  section('nekoBT')
+  assert.equal(await nekobt.test(), true)
+  log('  test() OK')
+
+  const single = await nekobt.single({
+    titles: ['Frieren'], episode: 1, resolution: '1080', exclusions: [], fetch: globalThis.fetch
+  })
+  log(`  single(Frieren, ep 1) → ${single.length} results`)
+  single.slice(0, 2).forEach(r => assertCommon(r))
+  for (const r of single) {
+    const nums = extractNumbersFromTitle(r.title)
+    assert.ok(nums.has(1), `every nekobt single() result should contain ep 1, got "${r.title}"`)
+  }
+
+  const noHevc = await nekobt.single({
+    titles: ['Frieren'], episode: 1, resolution: '1080', exclusions: ['HEVC'], fetch: globalThis.fetch
+  })
+  log(`  single(Frieren, ep 1, -HEVC) → ${noHevc.length} results`)
+  for (const r of noHevc) assert.ok(!/hevc/i.test(r.title), `exclusion not applied for "${r.title}"`)
+
+  const movie = await nekobt.movie({
+    titles: ['A Silent Voice'], resolution: '1080', exclusions: [], fetch: globalThis.fetch
+  })
+  log(`  movie(A Silent Voice) → ${movie.length} results`)
+  if (movie[0]) assertCommon(movie[0])
+
+  const batch = await nekobt.batch({
+    titles: ['Frieren'], resolution: '1080', exclusions: [], fetch: globalThis.fetch
+  })
+  log(`  batch(Frieren) → ${batch.length} results`)
+  assert.ok(batch.length > 0, 'batch() should find season packs')
+  batch.slice(0, 3).forEach(r => {
+    assertCommon(r)
+    assert.equal(r.type, 'batch')
+    assert.match(r.title, /\b(?:batch|complete|season|s\d{1,2}|bd|cour|collection)\b/i)
+  })
+
+  log('  empty titles → []')
+  assert.deepEqual(await nekobt.single({ titles: [], fetch: globalThis.fetch }), [])
+}
+
 async function run () {
   unitFilterChecks()
   await testNyaa()
   await testSeadex()
   await testAnimeTosho()
+  await testSubsPlease()
+  await testNekoBT()
   log('\nall tests passed ✓')
 }
 

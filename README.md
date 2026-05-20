@@ -10,7 +10,7 @@ In Hayase, open **Settings → Extensions → Add Extension** and paste the mani
 https://raw.githubusercontent.com/resirch/hayase-extensions/main/index.json
 ```
 
-All three extensions in this manifest are added at once. Toggle individual ones from the extensions list.
+All extensions in this manifest are added at once. Toggle individual ones from the extensions list.
 
 ## Included extensions
 
@@ -19,6 +19,8 @@ All three extensions in this manifest are added at once. Toggle individual ones 
 | Nyaa | torrent | medium | [nyaa.si](https://nyaa.si) RSS | title + episode (string) |
 | SeaDex | torrent | high | [releases.moe](https://releases.moe) API | AniList ID |
 | AnimeTosho | torrent | high | [feed.animetosho.org](https://animetosho.org) JSON | AniDB IDs |
+| nekoBT | torrent | medium | [nekobt.to](https://nekobt.to) Torznab | title + episode (string) |
+| SubsPlease | torrent | medium | [subsplease.org](https://subsplease.org) API | title + episode (string) |
 
 ### Nyaa
 
@@ -45,6 +47,21 @@ All three extensions in this manifest are added at once. Toggle individual ones 
 - Fake DHT peer counts (≥30000) are zeroed out.
 - Entries with `anidb_fid` (mapped file) report accuracy `high`; others `medium`.
 
+### nekoBT
+
+- Queries [nekobt.to](https://nekobt.to)'s Torznab endpoint (`/api/torznab/api?t=search&q=...`).
+- `single` filters by `episode` and `absoluteEpisodeNumber` after stripping resolution/year/codec/CRC noise from titles.
+- `batch` searches the show title and keeps only titles that look like season packs (`S01`, `Complete`, `BD-Box`, `Cour`, `Collection`, etc.) — tagged `type: batch`.
+- `movie` uses Torznab `t=movie-search`.
+- Exclusions are filtered locally against titles.
+
+### SubsPlease
+
+- Searches [subsplease.org](https://subsplease.org) by title and filters by episode.
+- Returns per-resolution magnet links from the SubsPlease API.
+- `batch` returns no results because SubsPlease does not publish batch torrents through this API.
+- Exclusions are filtered locally against release titles.
+
 ## Repo layout
 
 ```
@@ -53,7 +70,9 @@ All three extensions in this manifest are added at once. Toggle individual ones 
 ├── src/                # extension sources
 │   ├── nyaa.js
 │   ├── seadex.js
-│   └── animetosho.js
+│   ├── animetosho.js
+│   ├── nekobt.js
+│   └── subsplease.js
 ├── dist/               # bundled output served to Hayase
 ├── scripts/build.mjs   # esbuild driver — bundles every src/*.js
 └── test/run.mjs        # live integration check
@@ -65,7 +84,7 @@ All three extensions in this manifest are added at once. Toggle individual ones 
 npm install
 npm run build           # writes dist/*.js
 npm run build:min       # minified
-npm test                # live check against all three sources
+npm test                # live check against all sources
 ```
 
 Adding a new extension:
