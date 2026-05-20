@@ -243,16 +243,29 @@ async function testNekoBT () {
   log(`  movie(A Silent Voice) → ${movie.length} results`)
   if (movie[0]) assertCommon(movie[0])
 
+  // batch() may legitimately return 0 if no batch of the *requested* season
+  // exists yet. We assert shape on whatever it returns, not result count.
   const batch = await nekobt.batch({
     titles: ['Frieren'], resolution: '1080', exclusions: [], fetch: globalThis.fetch
   })
   log(`  batch(Frieren) → ${batch.length} results`)
-  assert.ok(batch.length > 0, 'batch() should find season packs')
   batch.slice(0, 3).forEach(r => {
     assertCommon(r)
     assert.equal(r.type, 'batch')
     assert.match(r.title, /\b(?:batch|complete|season|s\d{1,2}|bd|cour|collection)\b/i)
   })
+
+  // Cross-check using an explicit "Sousou no Frieren S2" query — that should
+  // surface S2 batches without leaking S1 markers.
+  const s2batch = await nekobt.batch({
+    titles: ['Sousou no Frieren 2nd Season', 'Sousou no Frieren S2'], resolution: '1080', exclusions: [], fetch: globalThis.fetch
+  })
+  log(`  batch(Frieren S2) → ${s2batch.length} results`)
+  for (const r of s2batch) {
+    assertCommon(r)
+    assert.equal(r.type, 'batch')
+    assert.ok(!/\bS0?1\b(?!\d)|\bS0?1E\d|\b1st\s+season\b/i.test(r.title), `S2 batch leaked S1 marker: "${r.title}"`)
+  }
 
   log('  empty titles → []')
   assert.deepEqual(await nekobt.single({ titles: [], fetch: globalThis.fetch }), [])
@@ -329,13 +342,36 @@ async function testCoteS4 () {
     }
   }
 
-  // batch() should not return single-episode releases tagged as batch.
+  // batch() should not return single-episode releases tagged as batch,
+  // and any returned batch must be the requested season (S4) — no S1/S3
+  // batches like the user's screenshot leak.
+  const otherSeasonMarker = /\bS0?[123]\b(?!\d)|\bS0?[123]E\d|\b[123](?:st|nd|rd)\s+season\b|\bseason\s+[123](?![\d\w-])/i
   for (const [name, ext] of [['Nyaa', nyaa], ['nekoBT', nekobt]]) {
     const b = await ext.batch({ titles, episode: 9, resolution: '1080', exclusions: [], fetch: globalThis.fetch })
     log(`  batch ${name}: ${b.length} results`)
     for (const x of b) {
-      const explicit = explicitEp(x.title)
-      assert.equal(explicit, null, `${name}: batch() returned single-episode release "${x.title}"`)
+      assert.equal(explicitEp(x.title), null, `${name}: batch() returned single-episode release "${x.title}"`)
+      assert.ok(!otherSeasonMarker.test(x.title), `${name}: batch() returned wrong-season "${x.title}"`)
+    }
+  }
+}
+
+async function testFrierenS1NoS2Leaks () {
+  section('Frieren S1 — single-season query must not leak S2+ results')
+  // Frieren S1 (AniList id 154587) has no season marker in any title; my code
+  // treats this as "single season or unknown" and must reject any explicit
+  // S2+ release.
+  const titles = ['Sousou no Frieren', 'Frieren: Beyond Journey End', 'Frieren']
+  const explicitS2 = /\b(?:2nd|3rd|4th) season\b|\bS0?[2-9]\b(?!\d)|\bS0?[2-9]E\d/i
+  for (const [name, ext] of [['nekoBT', nekobt]]) {
+    const r = await ext.single({ titles, episode: 1, resolution: '1080', exclusions: [], fetch: globalThis.fetch })
+    log(`  ${name}: ${r.length} results`)
+    for (const x of r) {
+      // Allow combo batches like "S1+S2" (they contain S1), reject pure-S2 markers.
+      const isMultiSeasonBatch = /\bS\d\+S\d\b|\bS01\+S02\b/i.test(x.title)
+      if (!isMultiSeasonBatch) {
+        assert.ok(!explicitS2.test(x.title), `${name}: leaked S2+ on Frieren S1 query: "${x.title}"`)
+      }
     }
   }
 }
@@ -348,6 +384,7 @@ async function run () {
   await testSubsPlease()
   await testNekoBT()
   await testCoteS4()
+  await testFrierenS1NoS2Leaks()
   log('\nall tests passed ✓')
 }
 

@@ -133,9 +133,9 @@ function inferQuerySeason (titles) {
 }
 
 function matchesSeason (resultTitle, expectedSeason) {
-  if (expectedSeason == null) return true
   const hints = extractSeasonHints(resultTitle)
-  if (!hints.size) return true
+  if (expectedSeason == null) return !hints.size || hints.has(1)
+  if (!hints.size) return expectedSeason === 1
   return hints.has(expectedSeason)
 }
 
@@ -225,7 +225,7 @@ async function search (query, kind) {
   if (kind === 'single' && (query.episode != null || query.absoluteEpisodeNumber != null)) {
     filtered = filtered.filter(r => matchesEpisode(r.title, query))
   }
-  if (kind === 'single' && expectedSeason != null) {
+  if (kind === 'single') {
     filtered = filtered.filter(r => matchesSeason(r.title, expectedSeason))
   }
   if (kind === 'batch') {

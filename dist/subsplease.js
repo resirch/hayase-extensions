@@ -46,8 +46,8 @@ function inferQuerySeason(titles) {
   return null;
 }
 function matchesSeason(text, expectedSeason) {
-  if (expectedSeason == null) return true;
   const hints = extractSeasonHints(text);
+  if (expectedSeason == null) return !hints.size || hints.has(1);
   if (!hints.size) return expectedSeason === 1;
   return hints.has(expectedSeason);
 }
@@ -153,7 +153,7 @@ async function search(query) {
     const entries = await fetchSearch(fetchFn, term);
     for (const entry of entries) {
       if (!matchesEpisode(entry, query)) continue;
-      if (expectedSeason != null && !matchesSeason(entry.show || "", expectedSeason)) continue;
+      if (!matchesSeason(entry.show || "", expectedSeason)) continue;
       const downloads = Array.isArray(entry.downloads) ? entry.downloads : [];
       for (const download of downloads) {
         if (resolution && normalizeResolution(download.res) !== resolution) continue;

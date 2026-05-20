@@ -146,9 +146,9 @@ function inferQuerySeason (titles) {
 }
 
 function matchesSeason (resultTitle, expectedSeason) {
-  if (expectedSeason == null) return true
   const hints = extractSeasonHints(resultTitle)
-  if (!hints.size) return true
+  if (expectedSeason == null) return !hints.size || hints.has(1)
+  if (!hints.size) return expectedSeason === 1
   return hints.has(expectedSeason)
 }
 
@@ -164,6 +164,15 @@ function uniqueCoreTitles (titles, limit) {
     if (out.length >= limit) break
   }
   return out
+}
+
+const SINGLE_EPISODE_RE = /\s-\s\d{1,3}(?:v\d)?(?=\s|$|\.|\[)|\bS\d{1,2}E\d{1,3}\b|\bEpisode\s+\d{1,3}\b/i
+const EPISODE_RANGE_RE = /\b\d{1,3}\s*[-~]\s*\d{1,3}\b/
+
+function looksLikeBatch (title) {
+  if (SINGLE_EPISODE_RE.test(title)) return false
+  if (EPISODE_RANGE_RE.test(title)) return true
+  return /\b(?:batch|complete|season|s\d{1,2}(?!\s*e\d)|bd[\s-]?box|cour|collection)\b/i.test(title)
 }
 
 function buildQueryForCore (core, { episode, resolution, exclusions }, kind) {
@@ -245,8 +254,13 @@ async function search (query, options, kind) {
   if (kind === 'single' && (query.episode != null || query.absoluteEpisodeNumber != null)) {
     filtered = filtered.filter(r => matchesEpisode(r.title, query))
   }
-  if (kind === 'single' && expectedSeason != null) {
+  if (kind === 'single' || kind === 'batch') {
     filtered = filtered.filter(r => matchesSeason(r.title, expectedSeason))
+  }
+  if (kind === 'batch') {
+    filtered = filtered
+      .filter(r => looksLikeBatch(r.title))
+      .map(r => ({ ...r, type: 'batch' }))
   }
   return filtered
 }
