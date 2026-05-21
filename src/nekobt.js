@@ -144,7 +144,12 @@ function uniqueCoreTitles (titles, limit) {
   const out = []
   for (const t of titles || []) {
     const core = getCoreTitle(t)
-    const key = sanitizeTitle(core).toLowerCase().replace(/[\s_-]+/g, '')
+    const sanitized = sanitizeTitle(core)
+    // Drop cores whose sanitized form has no ASCII letters — e.g. a Thai or
+    // Arabic synonym with a digit collapses to just that digit, which would
+    // match any ep N torrent.
+    if (!/[a-z]/i.test(sanitized)) continue
+    const key = sanitized.toLowerCase().replace(/[\s_-]+/g, '')
     if (!key || tried.has(key)) continue
     tried.add(key)
     out.push(core)

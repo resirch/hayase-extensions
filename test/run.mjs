@@ -376,6 +376,39 @@ async function testFrierenS1NoS2Leaks () {
   }
 }
 
+async function testOverlordIIIThaiSynonymLeak () {
+  section('Overlord III — non-ASCII synonyms with a digit must not poison search')
+  // AniList id 101474 — synonyms include "โอเวอร์ลอร์ด ภาค 3" (Thai). The old
+  // sanitizer stripped non-ASCII and left just "3", which then queried nyaa
+  // for "3 09 1080p" and returned every recent ep 9 torrent.
+  const titles = hayaseCreateTitles({
+    title: {
+      romaji: 'Overlord III',
+      english: 'Overlord III',
+      native: 'オーバーロードⅢ',
+      userPreferred: 'Overlord III'
+    },
+    synonyms: [
+      'Over Lord 3',
+      'โอเวอร์ลอร์ด ภาค 3',
+      'โอเวอร์ ลอร์ด จอมมารพิชิตโลก ภาค 3'
+    ]
+  })
+
+  for (const [name, ext] of [['Nyaa', nyaa], ['nekoBT', nekobt]]) {
+    const r = await ext.single({ titles, episode: 9, resolution: '1080', exclusions: [], fetch: globalThis.fetch })
+    log(`  ${name} single: ${r.length} results`)
+    for (const x of r) {
+      assert.match(x.title, /overlord/i, `${name}: non-Overlord result leaked: "${x.title}"`)
+    }
+    const b = await ext.batch({ titles, resolution: '1080', exclusions: [], fetch: globalThis.fetch })
+    log(`  ${name} batch: ${b.length} results`)
+    for (const x of b) {
+      assert.match(x.title, /overlord/i, `${name}: non-Overlord batch leaked: "${x.title}"`)
+    }
+  }
+}
+
 async function run () {
   unitFilterChecks()
   await testNyaa()
@@ -385,6 +418,7 @@ async function run () {
   await testNekoBT()
   await testCoteS4()
   await testFrierenS1NoS2Leaks()
+  await testOverlordIIIThaiSynonymLeak()
   log('\nall tests passed ✓')
 }
 

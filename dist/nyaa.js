@@ -119,7 +119,9 @@ function uniqueCoreTitles(titles, limit) {
   const out = [];
   for (const t of titles || []) {
     const core = getCoreTitle(t);
-    const key = sanitizeTitle(core).toLowerCase().replace(/[\s_-]+/g, "");
+    const sanitized = sanitizeTitle(core);
+    if (!/[a-z]/i.test(sanitized)) continue;
+    const key = sanitized.toLowerCase().replace(/[\s_-]+/g, "");
     if (!key || tried.has(key)) continue;
     tried.add(key);
     out.push(core);
