@@ -457,7 +457,10 @@ async function testSaoOrdinalScaleMovieNoTvLeak () {
   // Online - 01 ~ 25", "Gun Gale Online - 01 ~ 12" and "Sword Art Online II
   // 01-24". A synonym like "Sword Art Online: Ordinal Scale" collapses to the
   // core "Sword Art Online", so the provider fuzzy-matches the whole franchise.
-  const titles = hayaseCreateTitles({
+  const media = {
+    format: 'MOVIE',
+    episodes: 1,
+    duration: 119,
     title: {
       romaji: 'Gekijouban Sword Art Online: Ordinal Scale',
       english: 'Sword Art Online The Movie -Ordinal Scale-',
@@ -469,24 +472,40 @@ async function testSaoOrdinalScaleMovieNoTvLeak () {
       'Sword Art Online Movie',
       'SAO: Ordinal Scale'
     ]
-  })
+  }
+  const titles = hayaseCreateTitles(media)
 
   // The query carries a distinctive subtitle ("Ordinal Scale"), so every result
   // must contain it. That excludes same-franchise TV ("Sword Art Online II",
   // "Gun Gale Online", S1 episodes, Alicization) and sibling films
   // ("Progressive") — the exact leaks from the user's screenshot.
   const isOrdinalScale = t => /\bordinal\b/i.test(t) && /\bscale\b/i.test(t)
-  let nyaaCount = 0
+
+  // Hayase treats a movie (episodes === 1) as single-episode, so it only calls
+  // single() with episode 1 — movie() never runs. Passing the AniList media lets
+  // single() recognise the movie and apply the same filter. This is the path
+  // that actually produced the screenshot, so it's the one that must hold.
+  let nyaaSingleCount = 0
   for (const [name, ext] of [['Nyaa', nyaa], ['nekoBT', nekobt]]) {
-    const r = await ext.movie({ titles, resolution: '1080', exclusions: [], fetch: globalThis.fetch })
+    const r = await ext.single({ media, titles, episode: 1, resolution: '1080', exclusions: [], fetch: globalThis.fetch })
+    log(`  ${name} single(movie, ep1): ${r.length} results`)
+    if (name === 'Nyaa') nyaaSingleCount = r.length
+    for (const x of r) {
+      assertCommon(x)
+      assert.ok(isOrdinalScale(x.title), `${name}: single() for a movie leaked a non-Ordinal-Scale release: "${x.title}"`)
+    }
+  }
+  assert.ok(nyaaSingleCount > 0, 'Nyaa single() should surface Ordinal Scale releases for a movie query')
+
+  // movie() must stay clean too (used when a movie has episodes !== 1).
+  for (const [name, ext] of [['Nyaa', nyaa], ['nekoBT', nekobt]]) {
+    const r = await ext.movie({ media, titles, resolution: '1080', exclusions: [], fetch: globalThis.fetch })
     log(`  ${name} movie(): ${r.length} results`)
-    if (name === 'Nyaa') nyaaCount = r.length
     for (const x of r) {
       assertCommon(x)
       assert.ok(isOrdinalScale(x.title), `${name}: movie() leaked a non-Ordinal-Scale release: "${x.title}"`)
     }
   }
-  assert.ok(nyaaCount > 0, 'Nyaa movie() should still surface Ordinal Scale releases')
 }
 
 async function run () {

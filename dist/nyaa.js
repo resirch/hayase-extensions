@@ -169,6 +169,14 @@ function isMovieResult(title, subtitleSets) {
   if (MOVIE_HINT_RE.test(title)) return true;
   return !SINGLE_EPISODE_RE.test(title) && !EPISODE_RANGE_RE.test(title);
 }
+function isMovieQuery(query) {
+  const media = query?.media;
+  if (!media) return false;
+  if (media.format === "MOVIE") return true;
+  const names = [...Object.values(media.title ?? {}), ...media.synonyms ?? []];
+  if (names.some((t) => typeof t === "string" && t.toLowerCase().includes("movie"))) return true;
+  return (media.duration ?? 0) > 80 && media.episodes === 1;
+}
 function buildQueryForCore(core, { episode, resolution, exclusions }, kind) {
   const parts = [];
   const t = sanitizeTitle(core);
@@ -217,6 +225,7 @@ async function search(query, options, kind) {
   const fetchFn = query?.fetch ?? globalThis.fetch;
   const titles = query?.titles || [];
   if (!titles.length) return [];
+  if (kind === "single" && isMovieQuery(query)) kind = "movie";
   const expectedSeason = inferQuerySeason(titles);
   const sort = resolveSort(options);
   const cores = uniqueCoreTitles(titles, 4);

@@ -3,7 +3,7 @@
     "manifestVersion": 2,
     "name": "Nyaa",
     "id": "nyaa-si",
-    "version": "1.4.1",
+    "version": "1.4.2",
     "type": "torrent",
     "accuracy": "medium",
     "media": "sub",
@@ -11,7 +11,7 @@
     "url": "aHR0cHM6Ly9ueWFhLnNp",
     "icon": "https://nyaa.si/static/favicon.png",
     "update": "https://raw.githubusercontent.com/resirch/hayase-extensions/main/index.json",
-    "code": "https://raw.githubusercontent.com/resirch/hayase-extensions/main/dist/nyaa.js",
+    "code": "https://raw.githubusercontent.com/resirch/hayase-extensions/main/dist/nyaa.js?v=1.4.2",
     "options": {
       "sortByDate": {
         "type": "boolean",
@@ -52,7 +52,7 @@
     "manifestVersion": 2,
     "name": "nekoBT",
     "id": "nekobt",
-    "version": "1.4.1",
+    "version": "1.4.2",
     "type": "torrent",
     "accuracy": "medium",
     "media": "sub",
@@ -60,7 +60,7 @@
     "url": "aHR0cHM6Ly9uZWtvYnQudG8=",
     "icon": "https://nekobt.to/cdn/pfp/null/64",
     "update": "https://raw.githubusercontent.com/resirch/hayase-extensions/main/index.json",
-    "code": "https://raw.githubusercontent.com/resirch/hayase-extensions/main/dist/nekobt.js"
+    "code": "https://raw.githubusercontent.com/resirch/hayase-extensions/main/dist/nekobt.js?v=1.4.2"
   },
   {
     "manifestVersion": 2,

@@ -233,6 +233,20 @@ function isMovieResult (title, subtitleSets) {
   return !SINGLE_EPISODE_RE.test(title) && !EPISODE_RANGE_RE.test(title)
 }
 
+// Hayase classifies a film as a single-episode (episodes === 1) movie, so it
+// only ever calls single() for it — movie() never runs. Detect that here from
+// the AniList media so single() can apply the movie filter instead of matching
+// any franchise torrent that merely contains episode 1 (e.g. a "01 ~ 25" pack).
+// Mirrors isMovie() in hayase-app/interface anilist/util.ts.
+function isMovieQuery (query) {
+  const media = query?.media
+  if (!media) return false
+  if (media.format === 'MOVIE') return true
+  const names = [...Object.values(media.title ?? {}), ...(media.synonyms ?? [])]
+  if (names.some(t => typeof t === 'string' && t.toLowerCase().includes('movie'))) return true
+  return (media.duration ?? 0) > 80 && media.episodes === 1
+}
+
 async function fetchSearch (fetchFn, params) {
   const url = `${BASE}?${params.toString()}`
   let res
@@ -253,6 +267,10 @@ async function search (query, kind) {
   const fetchFn = query?.fetch ?? globalThis.fetch
   const titles = query?.titles || []
   if (!titles.length) return []
+
+  // Hayase calls single() (not movie()) for episodes===1 films, so treat a
+  // movie query as a movie search regardless of the requested episode.
+  if (kind === 'single' && isMovieQuery(query)) kind = 'movie'
 
   const expectedSeason = inferQuerySeason(titles)
   const cores = uniqueCoreTitles(titles, 4)
