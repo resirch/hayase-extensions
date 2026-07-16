@@ -8,9 +8,19 @@ import subsplease from '../dist/subsplease.js'
 const log = (...a) => console.log('[test]', ...a)
 const section = name => log(`\n── ${name} ──`)
 
-// mirror of extractEpisodeNumbers in src/nyaa.js — used for assertions about results
+// mirror of extractEpisodeNumbers in src/nyaa.js / src/nekobt.js — used for assertions
 function extractNumbersFromTitle (title) {
-  const cleaned = title
+  const s = String(title || '')
+  const out = new Set()
+  for (const m of s.matchAll(/\bS\d{1,2}E(\d{1,3})\b/gi)) out.add(Number(m[1]))
+  for (const m of s.matchAll(/\bEpisode[.\s_-]*(\d{1,4})\b/gi)) out.add(Number(m[1]))
+  const cleaned = s
+    .replace(/\{[^{}]*\}/g, '')
+    .replace(/\bS\d{1,2}E\d{1,3}\b/gi, ' ')
+    .replace(/\bS\d{1,2}\b/gi, ' ')
+    .replace(/\b\d{1,2}(?:st|nd|rd|th)\s+Season\b/gi, ' ')
+    .replace(/\bSeason\s+\d{1,2}\b/gi, ' ')
+    .replace(/\bEpisode[.\s_-]*\d{1,4}\b/gi, ' ')
     .replace(/\b\d{3,4}p\b/gi, '')
     .replace(/\b(?:19|20)\d{2}\b/g, '')
     .replace(/\bx26[45]\b/gi, '')
@@ -20,7 +30,6 @@ function extractNumbersFromTitle (title) {
     .replace(/\bv\d+\b/gi, '')
     .replace(/\[[A-F0-9]{6,}\]/gi, '')
     .replace(/\([A-F0-9]{6,}\)/gi, '')
-  const out = new Set()
   const re = /(?<![\d.])(\d{1,4})(?![\d.])/g
   let m
   while ((m = re.exec(cleaned)) !== null) out.add(Number(m[1]))
@@ -39,7 +48,15 @@ function unitFilterChecks () {
     ['[Erai-raws] Spy x Family Season 3 - 02 [1080p]', 1, null, false, 'ep 02 should not match ep 1'],
     ['[Group] One Piece 1000 [1080p]', 1000, null, true, '4-digit episode'],
     ['[Group] Show - 06v2 [1080p]', 6, null, true, 'v2 suffix'],
-    ['[Group] Show S04E06 [1080p][10bit][AAC]', 6, null, true, '10bit stripped, S04E06']
+    ['[Group] Show S04E06 [1080p][10bit][AAC]', 6, null, true, '10bit stripped, S04E06'],
+    // S02 in S02E01 must not count as episode 2 (ToonsHub dotted titles)
+    ['Saga.of.Tanya.the.Evil.S02E01.Episode.1.Salamander.Combat.Team.CR.WEB-DL.JPN.AAC2.0..MSubs-ToonsHub', 2, null, false, 'S02E01 must not match ep 2'],
+    ['Saga.of.Tanya.the.Evil.S02E01.Episode.1.Salamander.Combat.Team.CR.WEB-DL.JPN.AAC2.0..MSubs-ToonsHub', 1, null, true, 'S02E01 must match ep 1'],
+    ['Saga of Tanya the Evil S02E02 CR WEB-DL AAC2.0 (Youjo Senki, Multi-Subs)', 2, null, true, 'S02E02 matches ep 2'],
+    ['[SubsPlease] Youjo Senki S2 - 02 (1080p)', 2, null, true, 'S2 - 02 matches ep 2'],
+    ['[SubsPlease] Youjo Senki S2 - 02 (1080p)', 1, null, false, 'S2 - 02 must not match ep 1'],
+    ['Show Season 2 - 01', 2, null, false, 'Season 2 must not match ep 2'],
+    ['Show Season 2 - 01', 1, null, true, 'Season 2 - 01 matches ep 1']
   ]
   for (const [title, ep, abs, expected, why] of cases) {
     const nums = extractNumbersFromTitle(title)

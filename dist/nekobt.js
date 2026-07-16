@@ -44,8 +44,11 @@ function sanitizeTitle(title) {
   return String(title || "").replace(/[‐-―−]/g, "-").replace(/[^\w\s-]+/g, " ").replace(/\s+/g, " ").trim();
 }
 function extractEpisodeNumbers(title) {
-  const cleaned = title.replace(/\{[^{}]*\}/g, "").replace(/\b\d{3,4}p\b/gi, "").replace(/\b(?:19|20)\d{2}\b/g, "").replace(/\bx26[45]\b/gi, "").replace(/\bh\.?26[45]\b/gi, "").replace(/\b[57]\.1\b/g, "").replace(/\b\d+(?:bit|fps|kbps|ch)\b/gi, "").replace(/\bv\d+\b/gi, "").replace(/\[[A-F0-9]{6,}\]/gi, "").replace(/\([A-F0-9]{6,}\)/gi, "");
+  const s = String(title || "");
   const numbers = /* @__PURE__ */ new Set();
+  for (const m2 of s.matchAll(/\bS\d{1,2}E(\d{1,3})\b/gi)) numbers.add(Number(m2[1]));
+  for (const m2 of s.matchAll(/\bEpisode[.\s_-]*(\d{1,4})\b/gi)) numbers.add(Number(m2[1]));
+  const cleaned = s.replace(/\{[^{}]*\}/g, "").replace(/\bS\d{1,2}E\d{1,3}\b/gi, " ").replace(/\bS\d{1,2}\b/gi, " ").replace(/\b\d{1,2}(?:st|nd|rd|th)\s+Season\b/gi, " ").replace(/\bSeason\s+\d{1,2}\b/gi, " ").replace(/\bEpisode[.\s_-]*\d{1,4}\b/gi, " ").replace(/\b\d{3,4}p\b/gi, "").replace(/\b(?:19|20)\d{2}\b/g, "").replace(/\bx26[45]\b/gi, "").replace(/\bh\.?26[45]\b/gi, "").replace(/\b[57]\.1\b/g, "").replace(/\b\d+(?:bit|fps|kbps|ch)\b/gi, "").replace(/\bv\d+\b/gi, "").replace(/\[[A-F0-9]{6,}\]/gi, "").replace(/\([A-F0-9]{6,}\)/gi, "");
   const re = /(?<![\d.])(\d{1,4})(?![\d.])/g;
   let m;
   while ((m = re.exec(cleaned)) !== null) numbers.add(Number(m[1]));

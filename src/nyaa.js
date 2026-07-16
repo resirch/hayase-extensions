@@ -70,8 +70,20 @@ function parseRss (xml) {
 }
 
 function extractEpisodeNumbers (title) {
-  const cleaned = title
+  const s = String(title || '')
+  const numbers = new Set()
+
+  // Prefer structured tokens so season digits (S02 in S02E01) are not treated as episodes.
+  for (const m of s.matchAll(/\bS\d{1,2}E(\d{1,3})\b/gi)) numbers.add(Number(m[1]))
+  for (const m of s.matchAll(/\bEpisode[.\s_-]*(\d{1,4})\b/gi)) numbers.add(Number(m[1]))
+
+  const cleaned = s
     .replace(/\{[^{}]*\}/g, '')
+    .replace(/\bS\d{1,2}E\d{1,3}\b/gi, ' ')
+    .replace(/\bS\d{1,2}\b/gi, ' ')
+    .replace(/\b\d{1,2}(?:st|nd|rd|th)\s+Season\b/gi, ' ')
+    .replace(/\bSeason\s+\d{1,2}\b/gi, ' ')
+    .replace(/\bEpisode[.\s_-]*\d{1,4}\b/gi, ' ')
     .replace(/\b\d{3,4}p\b/gi, '')
     .replace(/\b(?:19|20)\d{2}\b/g, '')
     .replace(/\bx26[45]\b/gi, '')
@@ -81,7 +93,6 @@ function extractEpisodeNumbers (title) {
     .replace(/\bv\d+\b/gi, '')
     .replace(/\[[A-F0-9]{6,}\]/gi, '')
     .replace(/\([A-F0-9]{6,}\)/gi, '')
-  const numbers = new Set()
   const re = /(?<![\d.])(\d{1,4})(?![\d.])/g
   let m
   while ((m = re.exec(cleaned)) !== null) numbers.add(Number(m[1]))
