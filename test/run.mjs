@@ -67,6 +67,99 @@ function unitFilterChecks () {
     assert.equal(got, expected, `${why} — title="${title}" nums=${[...nums]} want=${[...candidates]}`)
     log(`  ${expected ? '✓' : '✗'} ${why}`)
   }
+
+  section('Cour/Part season-filter unit checks')
+  // Mirror of extractSeasonHints / inferQuerySeason / matchesSeason in src/*.js
+  function extractSeasonHints (text) {
+    const seasons = new Set()
+    const parts = new Set()
+    const s = String(text)
+    for (const m of s.matchAll(/\b(\d{1,2})(?:st|nd|rd|th)\s+season\b/ig)) seasons.add(Number(m[1]))
+    for (const m of s.matchAll(/\bS(\d{1,2})(?:E\d{1,3})?(?![\w-])/ig)) seasons.add(Number(m[1]))
+    for (const m of s.matchAll(/\bseason\s+(\d{1,2})(?![\d\w-])/ig)) seasons.add(Number(m[1]))
+    for (const m of s.matchAll(/\bcour\s*(\d{1,2})\b/ig)) parts.add(Number(m[1]))
+    for (const m of s.matchAll(/\bpart\s*(\d{1,2})\b/ig)) parts.add(Number(m[1]))
+    for (const m of s.matchAll(/\bpt\.?\s*(\d{1,2})\b/ig)) parts.add(Number(m[1]))
+    return { seasons, parts }
+  }
+  function inferQuerySeason (titles) {
+    const strong = /\b(\d{1,2})(?:st|nd|rd|th)\s+season\b/i
+    for (const t of titles || []) {
+      const m = String(t).match(strong)
+      if (m) {
+        const { parts } = extractSeasonHints(t)
+        return { season: Number(m[1]), part: parts.size ? [...parts][0] : null }
+      }
+    }
+    for (const t of titles || []) {
+      const { seasons, parts } = extractSeasonHints(t)
+      if (seasons.size) {
+        return { season: [...seasons][0], part: parts.size ? [...parts][0] : null }
+      }
+    }
+    for (const t of titles || []) {
+      const { parts } = extractSeasonHints(t)
+      if (parts.size) return { season: null, part: [...parts][0] }
+    }
+    return null
+  }
+  function matchesSeason (resultTitle, expected) {
+    const { seasons, parts } = extractSeasonHints(resultTitle)
+    if (expected == null) {
+      return (!seasons.size || seasons.has(1)) && (!parts.size || parts.has(1))
+    }
+    if (expected.season != null) {
+      if (!seasons.size) {
+        if (expected.season !== 1) return false
+      } else if (!seasons.has(expected.season)) {
+        return false
+      }
+    }
+    if (expected.part != null) {
+      if (!parts.size) {
+        if (expected.part !== 1) return false
+      } else if (!parts.has(expected.part)) {
+        return false
+      }
+    }
+    return true
+  }
+
+  const expected = inferQuerySeason(['Dr. STONE SCIENCE FUTURE Cour 2', 'Dr. Stone: Science Future Part 2'])
+  assert.deepEqual(expected, { season: null, part: 2 }, 'Cour 2 query infers part 2')
+  log('  ✓ Cour 2 query → part 2')
+
+  const season2 = inferQuerySeason(['Attack on Titan Season 2', 'Shingeki no Kyojin S2'])
+  assert.deepEqual(season2, { season: 2, part: null }, 'Season 2 query does not treat part as season')
+  log('  ✓ Season 2 query → season 2 only')
+
+  const courCases = [
+    ['Dr Stone - Science Future (Season 04 pt2) [Dual-Audio]', true, 'pt2 matches Cour 2'],
+    ['Dr. Stone (2025) (Season 4 | Part 02) [WEBRip] (Batch)', true, 'Part 02 matches Cour 2'],
+    ['Dr Stone - Science Future (Season 04 pt3) (Batch)', false, 'pt3 must not match Cour 2'],
+    ['Dr Stone - Science Future (Season 04) [Dual-Audio][Multi-Subs]', false, 'bare Season 04 must not match Cour 2'],
+    ['Dr. Stone S4 - 03', false, 'S4 without part must not match Cour 2'],
+    ['Show Season 4 Part 2', true, 'Season+Part still matches on part'],
+    ['Attack on Titan Season 2', false, 'Season 2 alone must not match Cour 2']
+  ]
+  for (const [title, want, why] of courCases) {
+    assert.equal(matchesSeason(title, expected), want, why)
+    log(`  ${want ? '✓' : '✗'} ${why}`)
+  }
+
+  // Season-number queries must ignore Part digits (Season 4 Part 2 ≠ Season 2)
+  assert.equal(
+    matchesSeason('Attack on Titan Season 4 Part 2', { season: 2, part: null }),
+    false,
+    'Season 4 Part 2 must not satisfy Season 2'
+  )
+  log('  ✓ Season 4 Part 2 must not satisfy Season 2')
+  assert.equal(
+    matchesSeason('Attack on Titan Season 2 Part 1', { season: 2, part: null }),
+    true,
+    'Season 2 Part 1 still satisfies Season 2'
+  )
+  log('  ✓ Season 2 Part 1 satisfies Season 2')
 }
 
 function assertCommon (r, { allowEmptyHash = false } = {}) {
@@ -525,6 +618,42 @@ async function testSaoOrdinalScaleMovieNoTvLeak () {
   }
 }
 
+async function testDrStoneCour2NoWrongPartLeak () {
+  section('Dr. Stone Science Future Cour 2 — must not leak pt1/pt3 / bare Season 04 packs')
+  // Reproduces the user's screenshot: Cour 2 episode search returned Judas
+  // Season 04 / pt2 / pt3 batches mixed together because "Cour 2" was not
+  // treated as a part hint.
+  const titles = hayaseCreateTitles({
+    title: {
+      romaji: 'Dr. STONE: SCIENCE FUTURE Cour 2',
+      english: 'Dr. STONE SCIENCE FUTURE Cour 2',
+      native: 'ドクターストーン SCIENCE FUTURE 第2クール'
+    },
+    synonyms: [
+      'Dr. Stone: Science Future Part 2',
+      'Dr. Stone Science Future Cour 2'
+    ]
+  })
+  const wrongPart = /\b(?:pt\.?\s*0?[13]\b|part\s*0?[13]\b|cour\s*0?[13]\b)/i
+  // Bare Season 04 / S4 with no part/cour marker — these are whole-season packs
+  // that must not satisfy a Cour 2 query.
+  const bareSeason4 = /\b(?:season\s*0?4|S0?4)\b/i
+  const hasPart2 = /\b(?:pt\.?\s*0?2\b|part\s*0?2\b|cour\s*0?2\b)/i
+
+  for (const [name, ext] of [['Nyaa', nyaa], ['nekoBT', nekobt]]) {
+    const b = await ext.batch({ titles, resolution: '1080', exclusions: [], fetch: globalThis.fetch })
+    log(`  batch ${name}: ${b.length} results`)
+    for (const x of b) {
+      assertCommon(x)
+      assert.equal(x.type, 'batch')
+      assert.ok(!wrongPart.test(x.title), `${name}: Cour 2 batch leaked wrong part: "${x.title}"`)
+      if (bareSeason4.test(x.title)) {
+        assert.ok(hasPart2.test(x.title), `${name}: bare Season 04 pack must not match Cour 2: "${x.title}"`)
+      }
+    }
+  }
+}
+
 async function run () {
   unitFilterChecks()
   await testNyaa()
@@ -537,6 +666,7 @@ async function run () {
   await testOverlordIIIThaiSynonymLeak()
   await testRezeroS4NonLatinSynonymLeak()
   await testSaoOrdinalScaleMovieNoTvLeak()
+  await testDrStoneCour2NoWrongPartLeak()
   log('\nall tests passed ✓')
 }
 
