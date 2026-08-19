@@ -1,3 +1,26 @@
+// src/lib/release-language.js
+var ENGLISH_CODE_RE = /^en(?:g|m|[-_][a-z0-9]+)?$/i;
+var SUBTITLE_HINT_RE = /\b(?:eng(?:lish)?[\s._-]*sub(?:title)?s?|sub(?:title)?s?[\s._-]*eng(?:lish)?|multi(?:ple)?[\s._-]*sub(?:title)?s?|multisubs?|m[\s._-]*subs?)\b/i;
+var RAW_HINT_RE = /\b(?:raws?|unsubbed|no[\s._-]*subs?)\b/i;
+function includesEnglish(languages) {
+  return String(languages).split(",").some((language) => ENGLISH_CODE_RE.test(language.trim()));
+}
+function hasEnglishSubtitles(title) {
+  const text = String(title || "");
+  const tagBlocks = [...text.matchAll(/\{Tags:([^}]*)\}/gi)];
+  for (const [, tags] of tagBlocks) {
+    const subtitleFields = [...tags.matchAll(/(?:^|;)\s*[FS]\s*=\s*([^;]*)/gi)];
+    if (subtitleFields.length) {
+      return subtitleFields.some(([, languages]) => includesEnglish(languages));
+    }
+    if (/(?:^|;)\s*A\s*=/i.test(tags)) {
+      return SUBTITLE_HINT_RE.test(text);
+    }
+  }
+  if (SUBTITLE_HINT_RE.test(text)) return true;
+  return !RAW_HINT_RE.test(text);
+}
+
 // src/nyaa.js
 var BASE = "https://nyaa.si";
 var CATEGORY = "1_2";
@@ -278,7 +301,7 @@ async function search(query, options, kind) {
       merged.push(r);
     }
   }
-  let filtered = merged;
+  let filtered = merged.filter((r) => hasEnglishSubtitles(r.title));
   if (kind === "single" && (query.episode != null || query.absoluteEpisodeNumber != null)) {
     filtered = filtered.filter((r) => matchesEpisode(r.title, query));
   }

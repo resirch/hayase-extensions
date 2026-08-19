@@ -1,3 +1,5 @@
+import { hasEnglishSubtitles } from './lib/release-language.js'
+
 const BASE = 'https://feed.animetosho.org/json'
 const QUALITIES = ['1080', '720', '540', '480']
 const FAKE_PEER_THRESHOLD = 30000
@@ -71,7 +73,9 @@ export default {
     if (!anidbEid) throw new Error('AnimeTosho needs an AniDB episode ID, which is missing for this episode.')
     const url = buildUrl({ eid: String(anidbEid) }, resolution, exclusions)
     const data = await fetchJson(fetchFn, url)
-    return Array.isArray(data) ? data.map(e => mapEntry(e)) : []
+    return Array.isArray(data)
+      ? data.filter(e => hasEnglishSubtitles(e.title || e.torrent_name)).map(e => mapEntry(e))
+      : []
   },
 
   async batch (query) {
@@ -81,7 +85,8 @@ export default {
     const url = buildUrl({ aid: String(anidbAid), order: 'size-d' }, resolution, exclusions)
     const data = await fetchJson(fetchFn, url)
     if (!Array.isArray(data)) return []
-    const filtered = episodeCount ? data.filter(e => (e.num_files ?? 0) >= episodeCount) : data
+    const translated = data.filter(e => hasEnglishSubtitles(e.title || e.torrent_name))
+    const filtered = episodeCount ? translated.filter(e => (e.num_files ?? 0) >= episodeCount) : translated
     return filtered.map(e => mapEntry(e, { batch: true }))
   },
 
@@ -91,6 +96,8 @@ export default {
     if (!anidbAid) throw new Error('AnimeTosho needs an AniDB anime ID, which is missing for this title.')
     const url = buildUrl({ aid: String(anidbAid) }, resolution, exclusions)
     const data = await fetchJson(fetchFn, url)
-    return Array.isArray(data) ? data.map(e => mapEntry(e)) : []
+    return Array.isArray(data)
+      ? data.filter(e => hasEnglishSubtitles(e.title || e.torrent_name)).map(e => mapEntry(e))
+      : []
   }
 }

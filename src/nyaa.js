@@ -1,3 +1,5 @@
+import { hasEnglishSubtitles } from './lib/release-language.js'
+
 const BASE = 'https://nyaa.si'
 const CATEGORY = '1_2'
 const FILTER = '0'
@@ -374,7 +376,7 @@ async function search (query, options, kind) {
     }
   }
 
-  let filtered = merged
+  let filtered = merged.filter(r => hasEnglishSubtitles(r.title))
   if (kind === 'single' && (query.episode != null || query.absoluteEpisodeNumber != null)) {
     filtered = filtered.filter(r => matchesEpisode(r.title, query))
   }

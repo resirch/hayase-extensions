@@ -1,3 +1,5 @@
+import { hasEnglishSubtitles } from './lib/release-language.js'
+
 const BASE = 'https://nekobt.to/api/torznab/api'
 
 function decodeEntities (str) {
@@ -343,7 +345,7 @@ async function search (query, kind) {
     }
   }
 
-  let filtered = merged
+  let filtered = merged.filter(r => hasEnglishSubtitles(r.title))
   if (kind === 'single' && (query.episode != null || query.absoluteEpisodeNumber != null)) {
     filtered = filtered.filter(r => matchesEpisode(r.title, query))
   }

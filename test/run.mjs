@@ -4,6 +4,7 @@ import seadex from '../dist/seadex.js'
 import animetosho from '../dist/animetosho.js'
 import nekobt from '../dist/nekobt.js'
 import subsplease from '../dist/subsplease.js'
+import { hasEnglishSubtitles } from '../src/lib/release-language.js'
 
 const log = (...a) => console.log('[test]', ...a)
 const section = name => log(`\n── ${name} ──`)
@@ -65,6 +66,22 @@ function unitFilterChecks () {
     if (abs != null) candidates.add(abs)
     const got = [...candidates].some(c => nums.has(c))
     assert.equal(got, expected, `${why} — title="${title}" nums=${[...nums]} want=${[...candidates]}`)
+    log(`  ${expected ? '✓' : '✗'} ${why}`)
+  }
+
+  section('English-subtitle filter unit checks')
+  const languageCases = [
+    ['[Group] Show - 01 {Tags:V9;C1;A=ja;}', false, 'Japanese audio with no subtitle metadata'],
+    ['[Group] Show - 01 {Tags:L2;V9;C1;A=ja;F=en;}', true, 'English subtitle file'],
+    ['[Group] Show - 01 {Tags:L3;V9;C1;A=ja;F=ptbr;S=en;}', true, 'English subtitle track'],
+    ['[Group] Show - 01 [Multi-Subs] {Tags:L2;V9;C1;A=ja;F=ptbr;}', false, 'structured non-English metadata is authoritative'],
+    ['[Group] Show - 01 [English Sub] {Tags:V9;C1;A=ja;}', true, 'explicit English subtitle hint survives incomplete metadata'],
+    ['[Ohys-Raws] Show - 01 [1080p]', false, 'explicit raw release'],
+    ['[Erai-raws] Show - 01 [1080p][Multiple Subtitle]', true, 'raw-named group with explicit subtitles'],
+    ['[ASW] Show - 01 [1080p][HEVC][AAC]', true, 'unknown language is preserved']
+  ]
+  for (const [title, expected, why] of languageCases) {
+    assert.equal(hasEnglishSubtitles(title), expected, why)
     log(`  ${expected ? '✓' : '✗'} ${why}`)
   }
 

@@ -1,3 +1,26 @@
+// src/lib/release-language.js
+var ENGLISH_CODE_RE = /^en(?:g|m|[-_][a-z0-9]+)?$/i;
+var SUBTITLE_HINT_RE = /\b(?:eng(?:lish)?[\s._-]*sub(?:title)?s?|sub(?:title)?s?[\s._-]*eng(?:lish)?|multi(?:ple)?[\s._-]*sub(?:title)?s?|multisubs?|m[\s._-]*subs?)\b/i;
+var RAW_HINT_RE = /\b(?:raws?|unsubbed|no[\s._-]*subs?)\b/i;
+function includesEnglish(languages) {
+  return String(languages).split(",").some((language) => ENGLISH_CODE_RE.test(language.trim()));
+}
+function hasEnglishSubtitles(title) {
+  const text = String(title || "");
+  const tagBlocks = [...text.matchAll(/\{Tags:([^}]*)\}/gi)];
+  for (const [, tags] of tagBlocks) {
+    const subtitleFields = [...tags.matchAll(/(?:^|;)\s*[FS]\s*=\s*([^;]*)/gi)];
+    if (subtitleFields.length) {
+      return subtitleFields.some(([, languages]) => includesEnglish(languages));
+    }
+    if (/(?:^|;)\s*A\s*=/i.test(tags)) {
+      return SUBTITLE_HINT_RE.test(text);
+    }
+  }
+  if (SUBTITLE_HINT_RE.test(text)) return true;
+  return !RAW_HINT_RE.test(text);
+}
+
 // src/animetosho.js
 var BASE = "https://feed.animetosho.org/json";
 var QUALITIES = ["1080", "720", "540", "480"];
@@ -65,7 +88,7 @@ var animetosho_default = {
     if (!anidbEid) throw new Error("AnimeTosho needs an AniDB episode ID, which is missing for this episode.");
     const url = buildUrl({ eid: String(anidbEid) }, resolution, exclusions);
     const data = await fetchJson(fetchFn, url);
-    return Array.isArray(data) ? data.map((e) => mapEntry(e)) : [];
+    return Array.isArray(data) ? data.filter((e) => hasEnglishSubtitles(e.title || e.torrent_name)).map((e) => mapEntry(e)) : [];
   },
   async batch(query) {
     const fetchFn = query?.fetch ?? globalThis.fetch;
@@ -74,7 +97,8 @@ var animetosho_default = {
     const url = buildUrl({ aid: String(anidbAid), order: "size-d" }, resolution, exclusions);
     const data = await fetchJson(fetchFn, url);
     if (!Array.isArray(data)) return [];
-    const filtered = episodeCount ? data.filter((e) => (e.num_files ?? 0) >= episodeCount) : data;
+    const translated = data.filter((e) => hasEnglishSubtitles(e.title || e.torrent_name));
+    const filtered = episodeCount ? translated.filter((e) => (e.num_files ?? 0) >= episodeCount) : translated;
     return filtered.map((e) => mapEntry(e, { batch: true }));
   },
   async movie(query) {
@@ -83,7 +107,7 @@ var animetosho_default = {
     if (!anidbAid) throw new Error("AnimeTosho needs an AniDB anime ID, which is missing for this title.");
     const url = buildUrl({ aid: String(anidbAid) }, resolution, exclusions);
     const data = await fetchJson(fetchFn, url);
-    return Array.isArray(data) ? data.map((e) => mapEntry(e)) : [];
+    return Array.isArray(data) ? data.filter((e) => hasEnglishSubtitles(e.title || e.torrent_name)).map((e) => mapEntry(e)) : [];
   }
 };
 export {
