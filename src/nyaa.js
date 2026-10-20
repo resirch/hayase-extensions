@@ -1,4 +1,5 @@
 import { hasEnglishSubtitles } from './lib/release-language.js'
+import { getCoreTitle, inferQuerySeason, matchesSeason } from './lib/season-title.js'
 
 const BASE = 'https://nyaa.si'
 const CATEGORY = '1_2'
@@ -117,86 +118,6 @@ function sanitizeTitle (title) {
     .replace(/[^\w\s-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-}
-
-const SEASON_CHOP_RE = /(\s+\d{1,2}(?:st|nd|rd|th)\s+season\b|\s+S\d{1,2}(?:E\d{1,3})?\b|\s+season\s+\d{1,2}\b|\s+part\s+\d{1,2}\b|\s+cour\s+\d{1,2}\b)/i
-
-function getCoreTitle (rawTitle) {
-  let t = String(rawTitle || '')
-  const colonIdx = t.indexOf(':')
-  if (colonIdx > 4) t = t.slice(0, colonIdx)
-  const m = t.match(SEASON_CHOP_RE)
-  if (m) t = t.slice(0, m.index)
-  // Drop dangling Nth ordinal (e.g. "Show 4th" after season text was chopped)
-  t = t.replace(/\s+\d{1,2}(?:st|nd|rd|th)\b/gi, '')
-  return t.replace(/\s+/g, ' ').trim()
-}
-
-// Franchise season (S04 / Season 4) and multi-cour split (Cour 2 / Part 02 / pt2)
-// are tracked separately — "Season 4 Part 2" must not satisfy a Season 2 query,
-// and a Cour 2 query must not accept Season 04 pt3 packs.
-function extractSeasonHints (text) {
-  const seasons = new Set()
-  const parts = new Set()
-  const s = String(text)
-  // "4th Season" / "2nd Season" — strongest season signal
-  for (const m of s.matchAll(/\b(\d{1,2})(?:st|nd|rd|th)\s+season\b/ig)) seasons.add(Number(m[1]))
-  // "S04" / "S04E11" — strong, but reject "S2-nensei" etc.
-  for (const m of s.matchAll(/\bS(\d{1,2})(?:E\d{1,3})?(?![\w-])/ig)) seasons.add(Number(m[1]))
-  // "Season 4" — reject "Season 2-nensei" by forbidding hyphen/word after the number
-  for (const m of s.matchAll(/\bseason\s+(\d{1,2})(?![\d\w-])/ig)) seasons.add(Number(m[1]))
-  for (const m of s.matchAll(/\bcour\s*(\d{1,2})\b/ig)) parts.add(Number(m[1]))
-  for (const m of s.matchAll(/\bpart\s*(\d{1,2})\b/ig)) parts.add(Number(m[1]))
-  for (const m of s.matchAll(/\bpt\.?\s*(\d{1,2})\b/ig)) parts.add(Number(m[1]))
-  return { seasons, parts }
-}
-
-function inferQuerySeason (titles) {
-  // Prefer strong "Nth Season" signal when present anywhere; fall back to other
-  // season hints, then Cour/Part-only titles (e.g. "Science Future Cour 2").
-  const strong = /\b(\d{1,2})(?:st|nd|rd|th)\s+season\b/i
-  for (const t of titles || []) {
-    const m = String(t).match(strong)
-    if (m) {
-      const { parts } = extractSeasonHints(t)
-      return { season: Number(m[1]), part: parts.size ? [...parts][0] : null }
-    }
-  }
-  for (const t of titles || []) {
-    const { seasons, parts } = extractSeasonHints(t)
-    if (seasons.size) {
-      return { season: [...seasons][0], part: parts.size ? [...parts][0] : null }
-    }
-  }
-  for (const t of titles || []) {
-    const { parts } = extractSeasonHints(t)
-    if (parts.size) return { season: null, part: [...parts][0] }
-  }
-  return null
-}
-
-function matchesSeason (resultTitle, expected) {
-  const { seasons, parts } = extractSeasonHints(resultTitle)
-  if (expected == null) {
-    return (!seasons.size || seasons.has(1)) && (!parts.size || parts.has(1))
-  }
-  if (expected.season != null) {
-    if (!seasons.size) {
-      if (expected.season !== 1) return false
-    } else if (!seasons.has(expected.season)) {
-      return false
-    }
-  }
-  if (expected.part != null) {
-    // Cour/Part queries must match a cour/part marker. Bare "Season 04" packs
-    // do not qualify for Cour 2+, and pt3 must not satisfy Cour 2.
-    if (!parts.size) {
-      if (expected.part !== 1) return false
-    } else if (!parts.has(expected.part)) {
-      return false
-    }
-  }
-  return true
 }
 
 // A title written mostly in a non-Latin script (CJK, Thai, Cyrillic, ...) leaves

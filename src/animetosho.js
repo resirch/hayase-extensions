@@ -1,6 +1,7 @@
 import { hasEnglishSubtitles } from './lib/release-language.js'
 
-const BASE = 'https://feed.animetosho.org/json'
+// feed.animetosho.org no longer resolves in public DNS; the site serves JSON at /feed/json.
+const BASE = 'https://animetosho.org/feed/json'
 const QUALITIES = ['1080', '720', '540', '480']
 const FAKE_PEER_THRESHOLD = 30000
 

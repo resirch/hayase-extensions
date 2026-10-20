@@ -1,35 +1,16 @@
-// src/subsplease.js
-var BASE = "https://subsplease.org";
-var API = `${BASE}/api/`;
-var BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-function normalizeEpisode(value) {
-  if (value == null || value === "") return "";
-  const str = String(value).trim();
-  const num = Number(str);
-  return Number.isFinite(num) ? String(num) : str.replace(/^0+/, "") || "0";
-}
-function normalizeResolution(value) {
-  if (value == null || value === "") return "";
-  return String(value).replace(/p$/i, "");
-}
-function normalizeSearchTerm(title) {
-  return String(title || "").replace(/[‐-―−]/g, "-").replace(/\s+/g, " ").trim();
-}
-var SEASON_CHOP_RE = /(\s+\d{1,2}(?:st|nd|rd|th)\s+season\b|\s+S\d{1,2}(?:E\d{1,3})?\b|\s+season\s+\d{1,2}\b|\s+part\s+\d{1,2}\b|\s+cour\s+\d{1,2}\b)/i;
+// src/lib/season-title.js
+var SEASON_CHOP_RE = /(\s+\d{1,2}(?:st|nd|rd|th)\s+season\b|\s+S\d{1,2}(?:E\d{1,3})?\b|\s+season\s+\d{1,2}\b|\s+part\s+\d{1,2}\b|\s+cour\s+\d{1,2}\b|\s+\d{1,2}\s*$)/i;
 function getCoreTitle(rawTitle) {
   let t = String(rawTitle || "");
   const colonIdx = t.indexOf(":");
-  if (colonIdx > 4) t = t.slice(0, colonIdx);
+  if (colonIdx > 4) {
+    const prefix = t.slice(0, colonIdx).trim();
+    if (prefix.split(/\s+/).filter(Boolean).length >= 2) t = t.slice(0, colonIdx);
+  }
   const m = t.match(SEASON_CHOP_RE);
   if (m) t = t.slice(0, m.index);
   t = t.replace(/\s+\d{1,2}(?:st|nd|rd|th)\b/gi, "");
   return t.replace(/\s+/g, " ").trim();
-}
-function hasUsableLatinCore(core, term) {
-  const ascii = (term.match(/[a-z]/gi) || []).length;
-  if (!ascii) return false;
-  const letters = (String(core).match(/\p{L}/gu) || []).length;
-  return ascii * 2 >= letters;
 }
 function extractSeasonHints(text) {
   const seasons = /* @__PURE__ */ new Set();
@@ -59,13 +40,20 @@ function inferQuerySeason(titles) {
     }
   }
   for (const t of titles || []) {
+    const s = String(t);
+    const m = s.match(/\s(\d{1,2})\s*$/);
+    if (m && Number(m[1]) >= 2 && !/\b(?:part|cour|pt\.?)\s*\d{1,2}\s*$/i.test(s)) {
+      return { season: Number(m[1]), part: null };
+    }
+  }
+  for (const t of titles || []) {
     const { parts } = extractSeasonHints(t);
     if (parts.size) return { season: null, part: [...parts][0] };
   }
   return null;
 }
-function matchesSeason(text, expected) {
-  const { seasons, parts } = extractSeasonHints(text);
+function matchesSeason(resultTitle, expected) {
+  const { seasons, parts } = extractSeasonHints(resultTitle);
   if (expected == null) {
     return (!seasons.size || seasons.has(1)) && (!parts.size || parts.has(1));
   }
@@ -84,6 +72,30 @@ function matchesSeason(text, expected) {
     }
   }
   return true;
+}
+
+// src/subsplease.js
+var BASE = "https://subsplease.org";
+var API = `${BASE}/api/`;
+var BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+function normalizeEpisode(value) {
+  if (value == null || value === "") return "";
+  const str = String(value).trim();
+  const num = Number(str);
+  return Number.isFinite(num) ? String(num) : str.replace(/^0+/, "") || "0";
+}
+function normalizeResolution(value) {
+  if (value == null || value === "") return "";
+  return String(value).replace(/p$/i, "");
+}
+function normalizeSearchTerm(title) {
+  return String(title || "").replace(/[‐-―−]/g, "-").replace(/\s+/g, " ").trim();
+}
+function hasUsableLatinCore(core, term) {
+  const ascii = (term.match(/[a-z]/gi) || []).length;
+  if (!ascii) return false;
+  const letters = (String(core).match(/\p{L}/gu) || []).length;
+  return ascii * 2 >= letters;
 }
 function decodeEntities(str) {
   return str.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'").replace(/&amp;/g, "&");

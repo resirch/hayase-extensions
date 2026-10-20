@@ -5,6 +5,7 @@ import animetosho from '../dist/animetosho.js'
 import nekobt from '../dist/nekobt.js'
 import subsplease from '../dist/subsplease.js'
 import { hasEnglishSubtitles } from '../src/lib/release-language.js'
+import { getCoreTitle, extractSeasonHints, inferQuerySeason, matchesSeason } from '../src/lib/season-title.js'
 
 const log = (...a) => console.log('[test]', ...a)
 const section = name => log(`\n── ${name} ──`)
@@ -86,61 +87,6 @@ function unitFilterChecks () {
   }
 
   section('Cour/Part season-filter unit checks')
-  // Mirror of extractSeasonHints / inferQuerySeason / matchesSeason in src/*.js
-  function extractSeasonHints (text) {
-    const seasons = new Set()
-    const parts = new Set()
-    const s = String(text)
-    for (const m of s.matchAll(/\b(\d{1,2})(?:st|nd|rd|th)\s+season\b/ig)) seasons.add(Number(m[1]))
-    for (const m of s.matchAll(/\bS(\d{1,2})(?:E\d{1,3})?(?![\w-])/ig)) seasons.add(Number(m[1]))
-    for (const m of s.matchAll(/\bseason\s+(\d{1,2})(?![\d\w-])/ig)) seasons.add(Number(m[1]))
-    for (const m of s.matchAll(/\bcour\s*(\d{1,2})\b/ig)) parts.add(Number(m[1]))
-    for (const m of s.matchAll(/\bpart\s*(\d{1,2})\b/ig)) parts.add(Number(m[1]))
-    for (const m of s.matchAll(/\bpt\.?\s*(\d{1,2})\b/ig)) parts.add(Number(m[1]))
-    return { seasons, parts }
-  }
-  function inferQuerySeason (titles) {
-    const strong = /\b(\d{1,2})(?:st|nd|rd|th)\s+season\b/i
-    for (const t of titles || []) {
-      const m = String(t).match(strong)
-      if (m) {
-        const { parts } = extractSeasonHints(t)
-        return { season: Number(m[1]), part: parts.size ? [...parts][0] : null }
-      }
-    }
-    for (const t of titles || []) {
-      const { seasons, parts } = extractSeasonHints(t)
-      if (seasons.size) {
-        return { season: [...seasons][0], part: parts.size ? [...parts][0] : null }
-      }
-    }
-    for (const t of titles || []) {
-      const { parts } = extractSeasonHints(t)
-      if (parts.size) return { season: null, part: [...parts][0] }
-    }
-    return null
-  }
-  function matchesSeason (resultTitle, expected) {
-    const { seasons, parts } = extractSeasonHints(resultTitle)
-    if (expected == null) {
-      return (!seasons.size || seasons.has(1)) && (!parts.size || parts.has(1))
-    }
-    if (expected.season != null) {
-      if (!seasons.size) {
-        if (expected.season !== 1) return false
-      } else if (!seasons.has(expected.season)) {
-        return false
-      }
-    }
-    if (expected.part != null) {
-      if (!parts.size) {
-        if (expected.part !== 1) return false
-      } else if (!parts.has(expected.part)) {
-        return false
-      }
-    }
-    return true
-  }
 
   const expected = inferQuerySeason(['Dr. STONE SCIENCE FUTURE Cour 2', 'Dr. Stone: Science Future Part 2'])
   assert.deepEqual(expected, { season: null, part: 2 }, 'Cour 2 query infers part 2')
@@ -177,6 +123,15 @@ function unitFilterChecks () {
     'Season 2 Part 1 still satisfies Season 2'
   )
   log('  ✓ Season 2 Part 1 satisfies Season 2')
+
+  section('Sequel-number title checks (Cyberpunk: Edgerunners 2)')
+  assert.equal(getCoreTitle('Cyberpunk: Edgerunners 2'), 'Cyberpunk: Edgerunners')
+  assert.equal(getCoreTitle('Sword Art Online: Ordinal Scale'), 'Sword Art Online')
+  const edgerunners = inferQuerySeason(['Cyberpunk: Edgerunners 2'])
+  assert.deepEqual(edgerunners, { season: 2, part: null })
+  assert.equal(matchesSeason('Cyberpunk Edgerunners S01 v2 [Batch]', edgerunners), false)
+  assert.equal(matchesSeason('Cyberpunk Edgerunners S02E07 [1080p]', edgerunners), true)
+  log('  ✓ Edgerunners 2 core title, season inference, and S01 filter')
 }
 
 function assertCommon (r, { allowEmptyHash = false } = {}) {

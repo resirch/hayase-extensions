@@ -22,7 +22,7 @@ function hasEnglishSubtitles(title) {
 }
 
 // src/animetosho.js
-var BASE = "https://feed.animetosho.org/json";
+var BASE = "https://animetosho.org/feed/json";
 var QUALITIES = ["1080", "720", "540", "480"];
 var FAKE_PEER_THRESHOLD = 3e4;
 function buildQ(resolution, exclusions) {
