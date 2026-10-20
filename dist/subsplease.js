@@ -47,8 +47,10 @@ function inferQuerySeason(titles) {
     }
   }
   for (const t of titles || []) {
-    const { parts } = extractSeasonHints(t);
-    if (parts.size) return { season: null, part: [...parts][0] };
+    const { seasons, parts } = extractSeasonHints(t);
+    if (parts.size && (seasons.size || /\bcour\s*\d\b/i.test(t))) {
+      return { season: null, part: [...parts][0] };
+    }
   }
   return null;
 }

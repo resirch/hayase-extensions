@@ -55,8 +55,13 @@ export function inferQuerySeason (titles) {
     }
   }
   for (const t of titles || []) {
-    const { parts } = extractSeasonHints(t)
-    if (parts.size) return { season: null, part: [...parts][0] }
+    const { seasons, parts } = extractSeasonHints(t)
+    // Only trust a part-only hint when backed by an explicit "Cour N" marker
+    // or a season number. A bare "Part N" in a synonym must not force a part
+    // filter onto results that name the cour differently on Nyaa.
+    if (parts.size && (seasons.size || /\bcour\s*\d\b/i.test(t))) {
+      return { season: null, part: [...parts][0] }
+    }
   }
   return null
 }

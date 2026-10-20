@@ -96,6 +96,13 @@ function unitFilterChecks () {
   assert.deepEqual(season2, { season: 2, part: null }, 'Season 2 query does not treat part as season')
   log('  ✓ Season 2 query → season 2 only')
 
+  assert.equal(
+    inferQuerySeason(['BLEACH: Thousand-Year Blood War Part 4']),
+    null,
+    'bare Part N in synonym must not infer part-only filter'
+  )
+  log('  ✓ bare Part N synonym → no part filter')
+
   const courCases = [
     ['Dr Stone - Science Future (Season 04 pt2) [Dual-Audio]', true, 'pt2 matches Cour 2'],
     ['Dr. Stone (2025) (Season 4 | Part 02) [WEBRip] (Batch)', true, 'Part 02 matches Cour 2'],
