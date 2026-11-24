@@ -1,7 +1,8 @@
 import { hasEnglishSubtitles } from './lib/release-language.js'
 
-// feed.animetosho.org no longer resolves in public DNS; the site serves JSON at /feed/json.
-const BASE = 'https://animetosho.org/feed/json'
+// Original animetosho.org feed shut down (returns HTTP 403 "Feed disabled").
+// Anime Tosho NEW serves the same-shaped JSON API at feed.animetosho.net.
+const BASE = 'https://feed.animetosho.net/json'
 const QUALITIES = ['1080', '720', '540', '480']
 const FAKE_PEER_THRESHOLD = 30000
 
@@ -17,7 +18,7 @@ function buildQ (resolution, exclusions) {
 }
 
 function buildUrl (params, resolution, exclusions) {
-  const sp = new URLSearchParams(params)
+  const sp = new URLSearchParams({ hentai: '0', ...params })
   const q = buildQ(resolution, exclusions)
   if (q) {
     sp.set('qx', '1')
@@ -63,7 +64,7 @@ async function fetchJson (fetchFn, url) {
 
 export default {
   async test () {
-    const res = await globalThis.fetch(BASE)
+    const res = await globalThis.fetch(`${BASE}?hentai=0&q=test`)
     if (!res.ok) throw new Error(`AnimeTosho is unreachable (HTTP ${res.status})`)
     return true
   },

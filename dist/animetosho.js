@@ -22,7 +22,7 @@ function hasEnglishSubtitles(title) {
 }
 
 // src/animetosho.js
-var BASE = "https://animetosho.org/feed/json";
+var BASE = "https://feed.animetosho.net/json";
 var QUALITIES = ["1080", "720", "540", "480"];
 var FAKE_PEER_THRESHOLD = 3e4;
 function buildQ(resolution, exclusions) {
@@ -36,7 +36,7 @@ function buildQ(resolution, exclusions) {
   return groups.join("");
 }
 function buildUrl(params, resolution, exclusions) {
-  const sp = new URLSearchParams(params);
+  const sp = new URLSearchParams({ hentai: "0", ...params });
   const q = buildQ(resolution, exclusions);
   if (q) {
     sp.set("qx", "1");
@@ -78,7 +78,7 @@ async function fetchJson(fetchFn, url) {
 }
 var animetosho_default = {
   async test() {
-    const res = await globalThis.fetch(BASE);
+    const res = await globalThis.fetch(`${BASE}?hentai=0&q=test`);
     if (!res.ok) throw new Error(`AnimeTosho is unreachable (HTTP ${res.status})`);
     return true;
   },

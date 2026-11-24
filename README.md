@@ -18,7 +18,7 @@ All extensions in this manifest are added at once. Toggle individual ones from t
 |------|------|----------|--------|--------|
 | Nyaa | torrent | medium | [nyaa.si](https://nyaa.si) RSS | title + episode (string) |
 | SeaDex | torrent | high | [releases.moe](https://releases.moe) API | AniList ID |
-| AnimeTosho | torrent | high | [animetosho.org/feed/json](https://animetosho.org) JSON | AniDB IDs |
+| AnimeTosho | torrent | high | [feed.animetosho.net/json](https://animetosho.net) JSON | AniDB IDs |
 | nekoBT | torrent | medium | [nekobt.to](https://nekobt.to) Torznab | title + episode (string) |
 | SubsPlease | torrent | medium | [subsplease.org](https://subsplease.org) API | title + episode (string) |
 
@@ -41,9 +41,10 @@ All extensions in this manifest are added at once. Toggle individual ones from t
 
 ### AnimeTosho
 
-- Queries [animetosho.org/feed/json](https://animetosho.org/feed/json) by AniDB IDs.
+- Queries [feed.animetosho.net/json](https://feed.animetosho.net/json) (Anime Tosho NEW) by AniDB IDs — the original `animetosho.org` feed is shut down.
 - `single` needs `anidbEid` (episode ID); `batch` / `movie` need `anidbAid` (anime ID).
 - Resolution and exclusions are baked into the AnimeTosho advanced-query string (`qx=1&q=...`).
+- Requests set `hentai=0` to exclude adult releases.
 - Fake DHT peer counts (≥30000) are zeroed out.
 - Entries with `anidb_fid` (mapped file) report accuracy `high`; others `medium`.
 
